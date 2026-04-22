@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neural Assembly Line</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: #0a0a14;
+        overflow: hidden;
+        font-family: monospace;
+      }
+      #game-container {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+      }
+      #game-container canvas {
+        display: block;
+        margin-top: 36px;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateX(10px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+    </style>
+    <script type="module" crossorigin src="/devoxx-code-jam/assets/index-CxTwoZ82.js"></script>
+  </head>
+  <body>
+    <div id="game-container"></div>
+  </body>
+</html>
