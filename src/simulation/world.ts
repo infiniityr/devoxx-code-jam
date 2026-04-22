@@ -1,6 +1,7 @@
 import { GameState } from './GameState';
 import { Building, BuildingType, ResourceType, IPort } from '../entities/Building';
 import { Conveyor, ConveyorDirection } from '../entities/Conveyor';
+import { Splitter, Merger } from '../entities/Logistics';
 import { getBuildingConfig } from './techTree';
 import { EventBus, Events } from '../EventBus';
 
@@ -131,4 +132,67 @@ function overlaps(
   bx: number, by: number, bw: number, bh: number
 ): boolean {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function isCellOccupied(state: GameState, x: number, y: number): boolean {
+  for (const b of state.buildings) {
+    if (x >= b.x && x < b.x + b.width && y >= b.y && y < b.y + b.height) return true;
+  }
+  if (state.conveyors.find(c => c.x === x && c.y === y)) return true;
+  if (state.splitters.find(s => s.x === x && s.y === y)) return true;
+  if (state.mergers.find(m => m.x === x && m.y === y)) return true;
+  return false;
+}
+
+const LOGISTICS_COST = 30;
+
+export function placeSplitter(
+  state: GameState,
+  x: number,
+  y: number,
+  outputDirections: ConveyorDirection[]
+): Splitter | null {
+  if (state.credits < LOGISTICS_COST) return null;
+  if (isCellOccupied(state, x, y)) return null;
+
+  const splitter = new Splitter(nextId('splitter'), x, y, outputDirections);
+  state.splitters.push(splitter);
+  state.credits -= LOGISTICS_COST;
+  EventBus.emit(Events.BUILDING_PLACED, splitter);
+  return splitter;
+}
+
+export function removeSplitter(state: GameState, id: string): boolean {
+  const idx = state.splitters.findIndex(s => s.id === id);
+  if (idx === -1) return false;
+  state.splitters.splice(idx, 1);
+  state.buffers.delete(id);
+  state.credits += Math.floor(LOGISTICS_COST * 0.5);
+  return true;
+}
+
+export function placeMerger(
+  state: GameState,
+  x: number,
+  y: number,
+  inputDirections: [ConveyorDirection, ConveyorDirection],
+  outputDirection: ConveyorDirection
+): Merger | null {
+  if (state.credits < LOGISTICS_COST) return null;
+  if (isCellOccupied(state, x, y)) return null;
+
+  const merger = new Merger(nextId('merger'), x, y, inputDirections, outputDirection);
+  state.mergers.push(merger);
+  state.credits -= LOGISTICS_COST;
+  EventBus.emit(Events.BUILDING_PLACED, merger);
+  return merger;
+}
+
+export function removeMerger(state: GameState, id: string): boolean {
+  const idx = state.mergers.findIndex(m => m.id === id);
+  if (idx === -1) return false;
+  state.mergers.splice(idx, 1);
+  state.buffers.delete(id);
+  state.credits += Math.floor(LOGISTICS_COST * 0.5);
+  return true;
 }

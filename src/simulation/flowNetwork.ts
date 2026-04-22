@@ -1,6 +1,7 @@
 import { GameState } from './GameState';
 import { Building, BuildingType, ResourceType } from '../entities/Building';
 import { Conveyor, ConveyorDirection } from '../entities/Conveyor';
+import { Splitter, Merger } from '../entities/Logistics';
 
 const BUFFER_MAX = 50;
 
@@ -56,6 +57,26 @@ function buildingAtCell(buildings: Building[], x: number, y: number): Building |
   );
 }
 
+/** Find splitter at exact position */
+function splitterAt(splitters: Splitter[], x: number, y: number): Splitter | undefined {
+  return splitters.find(s => s.x === x && s.y === y);
+}
+
+/** Find merger at exact position */
+function mergerAt(mergers: Merger[], x: number, y: number): Merger | undefined {
+  return mergers.find(m => m.x === x && m.y === y);
+}
+
+/** Get the cell a direction points toward from a given position */
+function cellInDirection(x: number, y: number, dir: ConveyorDirection): { x: number; y: number } {
+  switch (dir) {
+    case ConveyorDirection.Right: return { x: x + 1, y };
+    case ConveyorDirection.Left:  return { x: x - 1, y };
+    case ConveyorDirection.Up:    return { x, y: y - 1 };
+    case ConveyorDirection.Down:  return { x, y: y + 1 };
+  }
+}
+
 /**
  * Process one tick of resource flow.
  * Buildings produce into their output buffers;
@@ -65,7 +86,7 @@ export function updateFlowNetwork(
   state: GameState,
   bufferCapacity: number = BUFFER_MAX
 ): void {
-  const { buildings, conveyors } = state;
+  const { buildings, conveyors, splitters, mergers } = state;
   const cap = bufferCapacity * state.techModifiers.bufferCapacity;
 
   // Step 1: Extractors / generators produce directly into their own output buffer
@@ -115,26 +136,30 @@ export function updateFlowNetwork(
     }
   }
 
-  // Step 3: Conveyors move items to downstream building input buffers
+  // Step 3: Conveyors move items to downstream building/splitter/merger input buffers
   for (const conv of conveyors) {
     const fromBuilding = buildingAtCell(buildings, conv.x, conv.y);
+    const fromSplitter = !fromBuilding ? splitterAt(splitters, conv.x, conv.y) : undefined;
+    const fromMerger = !fromBuilding && !fromSplitter ? mergerAt(mergers, conv.x, conv.y) : undefined;
+
+    const sourceId = fromBuilding?.id ?? fromSplitter?.id ?? fromMerger?.id;
+    if (!sourceId) continue;
+
+    const fromBuf = getBuffer(state, sourceId);
+    const itemsToMove = conv.mk === 3 ? 2 : 1;
 
     const next = nextCell(conv);
     const toBuilding = buildingAtCell(buildings, next.x, next.y);
-    const toConveyor = conveyorAt(conveyors, next.x, next.y);
-
-    if (!fromBuilding) continue;
-
-    const fromBuf = getBuffer(state, fromBuilding.id);
-
-    // Transfer one item per tick (or 2 for Mk3)
-    const itemsToMove = conv.mk === 3 ? 2 : 1;
+    const toSplitter = !toBuilding ? splitterAt(splitters, next.x, next.y) : undefined;
+    const toMerger = !toBuilding && !toSplitter ? mergerAt(mergers, next.x, next.y) : undefined;
+    const toConveyor = !toBuilding && !toSplitter && !toMerger
+      ? conveyorAt(conveyors, next.x, next.y)
+      : undefined;
 
     let moved = 0;
 
     if (toBuilding) {
       const toBuf = getBuffer(state, toBuilding.id);
-      // Move whatever is in the from-buffer that matches a downstream input port
       for (const port of toBuilding.inputPorts) {
         const available = bufferGet(fromBuf, port.resource);
         if (available > 0) {
@@ -148,20 +173,44 @@ export function updateFlowNetwork(
           }
         }
       }
+    } else if (toSplitter) {
+      // Route into the splitter's buffer — accepts any resource
+      const toBuf = getBuffer(state, toSplitter.id);
+      for (const [res, available] of fromBuf) {
+        if (available > 0) {
+          const actual = Math.min(available, itemsToMove);
+          const transferred = bufferAdd(toBuf, res, actual, cap);
+          bufferConsume(fromBuf, res, transferred);
+          moved += transferred;
+        }
+      }
+    } else if (toMerger) {
+      // Route into the merger's buffer — accepts any resource
+      const toBuf = getBuffer(state, toMerger.id);
+      for (const [res, available] of fromBuf) {
+        if (available > 0) {
+          const actual = Math.min(available, itemsToMove);
+          const transferred = bufferAdd(toBuf, res, actual, cap);
+          bufferConsume(fromBuf, res, transferred);
+          moved += transferred;
+        }
+      }
     } else if (toConveyor) {
-      // pass-through: move from this conveyor's building to next conveyor's "virtual buffer"
+      // pass-through to next conveyor's building/splitter/merger
       const nextBuilding = buildingAtCell(buildings, toConveyor.x, toConveyor.y);
-      if (nextBuilding) {
-        const toBuf = getBuffer(state, nextBuilding.id);
-        for (const resource of fromBuf.keys()) {
-          const available = bufferGet(fromBuf, resource as ResourceType);
+      const nextSplitter = !nextBuilding ? splitterAt(splitters, toConveyor.x, toConveyor.y) : undefined;
+      const nextMerger = !nextBuilding && !nextSplitter ? mergerAt(mergers, toConveyor.x, toConveyor.y) : undefined;
+      const destId = nextBuilding?.id ?? nextSplitter?.id ?? nextMerger?.id;
+      if (destId) {
+        const toBuf = getBuffer(state, destId);
+        for (const [res, available] of fromBuf) {
           if (available > 0) {
             const actual = Math.min(available, itemsToMove);
-            const space = cap - bufferGet(toBuf, resource as ResourceType);
+            const space = cap - bufferGet(toBuf, res);
             const transferred = Math.min(actual, space);
             if (transferred > 0) {
-              bufferConsume(fromBuf, resource as ResourceType, transferred);
-              bufferAdd(toBuf, resource as ResourceType, transferred, cap);
+              bufferConsume(fromBuf, res, transferred);
+              bufferAdd(toBuf, res, transferred, cap);
               moved += transferred;
             }
           }
@@ -173,7 +222,7 @@ export function updateFlowNetwork(
     let totalInBuf = 0;
     for (const v of fromBuf.values()) totalInBuf += v;
     conv.saturation = Math.min(1, totalInBuf / cap);
-    void moved; // used for future analytics
+    void moved;
   }
 
   // Step 4: Update token stats for HUD
@@ -188,6 +237,91 @@ export function updateFlowNetwork(
     }
   }
   state.tokensPerSecond = totalTokensProduced * state.tps;
+
+  // Step 5: Splitters — round-robin distribute to output conveyors
+  for (const splitter of splitters) {
+    const buf = getBuffer(state, splitter.id);
+    if (splitter.outputDirections.length === 0) continue;
+
+    // Collect all resources present in the buffer
+    const resources = [...buf.entries()].filter(([, amt]) => amt > 0);
+    if (resources.length === 0) continue;
+
+    // For each item to distribute, pick the next output direction (round-robin)
+    for (const [res, available] of resources) {
+      let remaining = available;
+      let attempts = splitter.outputDirections.length;
+      while (remaining > 0 && attempts-- > 0) {
+        const dir = splitter.outputDirections[splitter.currentOutputIndex % splitter.outputDirections.length];
+        splitter.currentOutputIndex = (splitter.currentOutputIndex + 1) % splitter.outputDirections.length;
+
+        const outCell = cellInDirection(splitter.x, splitter.y, dir);
+        const toBuilding = buildingAtCell(buildings, outCell.x, outCell.y);
+        const toSplitter = !toBuilding ? splitterAt(splitters, outCell.x, outCell.y) : undefined;
+        const toMerger = !toBuilding && !toSplitter ? mergerAt(mergers, outCell.x, outCell.y) : undefined;
+        const destId = toBuilding?.id ?? toSplitter?.id ?? toMerger?.id;
+
+        if (!destId) continue;
+        const toBuf = getBuffer(state, destId);
+
+        // If destination is a building, only route if it accepts this resource
+        if (toBuilding) {
+          const acceptsResource = toBuilding.inputPorts.some(p => p.resource === res);
+          if (!acceptsResource) continue;
+        }
+
+        const space = cap - bufferGet(toBuf, res);
+        const transfer = Math.min(1, remaining, space);
+        if (transfer > 0) {
+          bufferConsume(buf, res, transfer);
+          bufferAdd(toBuf, res, transfer, cap);
+          remaining -= transfer;
+        }
+      }
+    }
+  }
+
+  // Step 6: Mergers — fuse 2 input directions into 1 output (same resource type only)
+  for (const merger of mergers) {
+    const buf = getBuffer(state, merger.id);
+
+    // Check that all resources in the buffer are of the same type
+    const presentTypes = [...buf.entries()].filter(([, amt]) => amt > 0).map(([res]) => res);
+    if (presentTypes.length > 1) {
+      // Mixed types: drain the buffer to avoid deadlock (discard excess types, keep first)
+      const keepType = presentTypes[0];
+      for (const res of presentTypes.slice(1)) {
+        buf.set(res, 0);
+      }
+      presentTypes.length = 1;
+      presentTypes[0] = keepType;
+    }
+
+    if (presentTypes.length === 0) continue;
+
+    const outCell = cellInDirection(merger.x, merger.y, merger.outputDirection);
+    const toBuilding = buildingAtCell(buildings, outCell.x, outCell.y);
+    const toSplitter = !toBuilding ? splitterAt(splitters, outCell.x, outCell.y) : undefined;
+    const toMerger = !toBuilding && !toSplitter ? mergerAt(mergers, outCell.x, outCell.y) : undefined;
+    const destId = toBuilding?.id ?? toSplitter?.id ?? toMerger?.id;
+
+    if (!destId) continue;
+    const toBuf = getBuffer(state, destId);
+    const res = presentTypes[0];
+    const available = bufferGet(buf, res);
+
+    if (toBuilding) {
+      const acceptsResource = toBuilding.inputPorts.some(p => p.resource === res);
+      if (!acceptsResource) continue;
+    }
+
+    const space = cap - bufferGet(toBuf, res);
+    const transfer = Math.min(available, space, 2); // up to 2 items/tick
+    if (transfer > 0) {
+      bufferConsume(buf, res, transfer);
+      bufferAdd(toBuf, res, transfer, cap);
+    }
+  }
 }
 
 function applyBuildingModifier(building: Building, baseRate: number, state: GameState): number {

@@ -1,5 +1,6 @@
 import { Building, ResourceType } from '../entities/Building';
 import { Conveyor } from '../entities/Conveyor';
+import { Splitter, Merger } from '../entities/Logistics';
 
 export interface MarketEntry {
   modelId: string;
@@ -35,6 +36,8 @@ export interface GameState {
 
   buildings: Building[];
   conveyors: Conveyor[];
+  splitters: Splitter[];
+  mergers: Merger[];
 
   // resource buffers: buildingId -> resource -> count
   buffers: Map<string, Map<ResourceType, number>>;
@@ -71,6 +74,8 @@ export function createInitialState(seed: number = 42): GameState {
 
     buildings: [],
     conveyors: [],
+    splitters: [],
+    mergers: [],
     buffers: new Map(),
     market: new Map([
       ['mlp', { modelId: 'mlp', basePrice: 300, currentPrice: 300, supplyCount: 0, demandMultiplier: 1, autoSell: true, priceHistory: [] }],

@@ -66,14 +66,18 @@ export class Overlays {
     }
   }
 
-  // Draw heat halo on the full grid
-  drawHeatGrid(state: GameState): void {
+  // Draw heat halo — only on tiles visible in the current camera viewport
+  drawHeatGrid(state: GameState, camera: Phaser.Cameras.Scene2D.Camera): void {
     if (this.mode !== 'thermal') return;
     const g = this.graphics;
 
-    for (let ty = 0; ty < GRID_H; ty++) {
-      for (let tx = 0; tx < GRID_W; tx++) {
-        // Aggregate heat from nearby buildings
+    const tileXMin = Math.max(0, Math.floor(camera.scrollX / TILE_SIZE));
+    const tileYMin = Math.max(0, Math.floor(camera.scrollY / TILE_SIZE));
+    const tileXMax = Math.min(GRID_W - 1, Math.ceil((camera.scrollX + camera.width / camera.zoom) / TILE_SIZE));
+    const tileYMax = Math.min(GRID_H - 1, Math.ceil((camera.scrollY + camera.height / camera.zoom) / TILE_SIZE));
+
+    for (let ty = tileYMin; ty <= tileYMax; ty++) {
+      for (let tx = tileXMin; tx <= tileXMax; tx++) {
         let heat = 0;
         for (const b of state.buildings) {
           const dist = Math.max(Math.abs(b.x - tx), Math.abs(b.y - ty));

@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
 export const TILE_SIZE = 32;
-export const GRID_W = 32;
-export const GRID_H = 32;
+export const GRID_W = 256;
+export const GRID_H = 256;
 
 // Zone tile types
 export const enum ZoneType {
@@ -11,9 +11,40 @@ export const enum ZoneType {
   SiliconVein = 2,
 }
 
-type ZoneGrid = ZoneType[][];
+export type ZoneGrid = ZoneType[][];
 
-/** Generate zone grid from a seed (simple LCG) */
+/** Place a cluster of 3–5 tiles of the given zone type around a center point */
+function placeCluster(
+  grid: ZoneGrid,
+  cx: number,
+  cy: number,
+  type: ZoneType,
+  size: number,
+  next: () => number
+): void {
+  grid[cy][cx] = type;
+  const offsets = [
+    [-1, 0], [1, 0], [0, -1], [0, 1],
+    [-1, -1], [1, -1], [-1, 1], [1, 1],
+  ];
+  // Shuffle offsets
+  for (let i = offsets.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [offsets[i], offsets[j]] = [offsets[j], offsets[i]];
+  }
+  let placed = 1;
+  for (const [dx, dy] of offsets) {
+    if (placed >= size) break;
+    const nx = cx + dx;
+    const ny = cy + dy;
+    if (nx > 0 && ny > 0 && nx < GRID_W - 1 && ny < GRID_H - 1 && grid[ny][nx] === ZoneType.Open) {
+      grid[ny][nx] = type;
+      placed++;
+    }
+  }
+}
+
+/** Generate zone grid from a seed — clusters arranged along an Archimedean spiral */
 export function generateZones(seed: number): ZoneGrid {
   const grid: ZoneGrid = Array.from({ length: GRID_H }, () =>
     Array(GRID_W).fill(ZoneType.Open)
@@ -25,18 +56,31 @@ export function generateZones(seed: number): ZoneGrid {
     return (rng >>> 0) / 0xffffffff;
   }
 
-  const dataNodes = 8;
-  const siliconVeins = 6;
+  // Archimedean spiral: r = a * θ, centered at grid center
+  // 3 full turns, ~46 clusters total (doubles previous density)
+  const totalClusters = 46;
+  const turns = 3;
+  const cx = GRID_W / 2;
+  const cy = GRID_H / 2;
+  const maxRadius = 110; // tiles from center — stays within 256×256 bounds
+  const thetaMax = turns * 2 * Math.PI;
+  const a = maxRadius / thetaMax;
+  const angleStep = thetaMax / totalClusters;
 
-  for (let i = 0; i < dataNodes; i++) {
-    const x = Math.floor(next() * (GRID_W - 2)) + 1;
-    const y = Math.floor(next() * (GRID_H - 2)) + 1;
-    grid[y][x] = ZoneType.DataNode;
-  }
-  for (let i = 0; i < siliconVeins; i++) {
-    const x = Math.floor(next() * (GRID_W - 2)) + 1;
-    const y = Math.floor(next() * (GRID_H - 2)) + 1;
-    if (grid[y][x] === ZoneType.Open) grid[y][x] = ZoneType.SiliconVein;
+  for (let i = 1; i <= totalClusters; i++) {
+    const theta = i * angleStep;
+    const r = a * theta;
+    const rawX = Math.round(cx + r * Math.cos(theta));
+    const rawY = Math.round(cy + r * Math.sin(theta));
+
+    // Clamp to valid bounds
+    const x = Math.max(2, Math.min(GRID_W - 3, rawX));
+    const y = Math.max(2, Math.min(GRID_H - 3, rawY));
+
+    // Alternate types: even index → DataNode, odd → SiliconVein
+    const type = i % 2 === 0 ? ZoneType.DataNode : ZoneType.SiliconVein;
+    const size = 3 + Math.floor(next() * 3); // 3–5, seed-driven
+    placeCluster(grid, x, y, type, size, next);
   }
 
   return grid;
@@ -55,9 +99,12 @@ export class GridRenderer {
   }
 
   private create(): void {
+    // Zones: drawn once as a sparse Graphics (only ~100 non-Open tiles drawn)
     this.zoneGraphics = this.scene.add.graphics();
-    this.gridGraphics = this.scene.add.graphics();
     this.drawZones();
+
+    // Grid lines: drawn once into a Graphics object
+    this.gridGraphics = this.scene.add.graphics();
     this.drawGrid();
   }
 
@@ -71,7 +118,6 @@ export class GridRenderer {
         if (zone === ZoneType.DataNode) {
           g.fillStyle(0x003355, 0.6);
           g.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-          // Icon
           g.fillStyle(0x00ccff, 0.8);
           g.fillRect(x * TILE_SIZE + 12, y * TILE_SIZE + 12, 8, 8);
         } else if (zone === ZoneType.SiliconVein) {
@@ -80,6 +126,7 @@ export class GridRenderer {
           g.fillStyle(0x8b6914, 0.8);
           g.fillRect(x * TILE_SIZE + 10, y * TILE_SIZE + 10, 12, 12);
         }
+        // ZoneType.Open tiles are not drawn — background color suffices
       }
     }
   }

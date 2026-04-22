@@ -1,35 +1,43 @@
 import Phaser from 'phaser';
 import { GameState, createInitialState } from '../simulation/GameState';
 import { startTickLoop, stopTickLoop } from '../simulation/tick';
-import { placeBuilding, placeConveyor } from '../simulation/world';
+import { placeBuilding, placeConveyor, placeSplitter, placeMerger } from '../simulation/world';
 import { saveGame, loadGame, applyLoad, maybeAutosave } from '../simulation/save';
 import { syncNextId } from '../simulation/world';
 import { EventBus, Events } from '../EventBus';
 import { Building, BuildingType } from '../entities/Building';
 import { ConveyorDirection } from '../entities/Conveyor';
+import { Splitter, Merger } from '../entities/Logistics';
 import { GridRenderer, TILE_SIZE, GRID_W, GRID_H, ZoneType } from '../rendering/GridRenderer';
 import { BuildingSprite } from '../rendering/BuildingSprite';
 import { ConveyorAnim } from '../rendering/ConveyorAnim';
+import { LogisticsSprite } from '../rendering/LogisticsSprite';
 import { HUD } from '../ui/HUD';
 import { BuildPanel, PlacementMode } from '../ui/BuildPanel';
+import { LogisticsPanel, LogisticsPlacementMode } from '../ui/LogisticsPanel';
 import { Overlays } from '../ui/Overlays';
 import { MarketPanel } from '../ui/MarketPanel';
 import { TechPanel } from '../ui/TechPanel';
 import { InfoPanel } from '../ui/InfoPanel';
+import { Minimap } from '../ui/Minimap';
 
 export class GameScene extends Phaser.Scene {
   private state!: GameState;
   private gridRenderer!: GridRenderer;
   private buildingSprites: Map<string, BuildingSprite> = new Map();
   private conveyorAnims: Map<string, ConveyorAnim> = new Map();
+  private logisticsSprites: Map<string, LogisticsSprite> = new Map();
   private hud!: HUD;
   private buildPanel!: BuildPanel;
+  private logisticsPanel!: LogisticsPanel;
   private overlays!: Overlays;
   private marketPanel!: MarketPanel;
   private techPanel!: TechPanel;
   private infoPanel!: InfoPanel;
+  private minimap!: Minimap;
 
   private placementMode: PlacementMode = { active: false };
+  private logisticsMode: LogisticsPlacementMode = { active: false };
   private conveyorMode: boolean = false;
   private conveyorDirection: ConveyorDirection = ConveyorDirection.Right;
   private previewGraphics!: Phaser.GameObjects.Graphics;
@@ -60,8 +68,19 @@ export class GameScene extends Phaser.Scene {
     this.hud = new HUD();
     this.buildPanel = new BuildPanel((mode) => {
       this.placementMode = mode;
+      this.logisticsMode = { active: false };
       this.conveyorMode = false;
+      this.logisticsPanel.deselect();
     });
+
+    this.logisticsPanel = new LogisticsPanel((mode) => {
+      this.logisticsMode = mode;
+      this.placementMode = { active: false };
+      this.conveyorMode = false;
+      this.buildPanel.deselect();
+    });
+    // Register logistics panel container so it survives BuildPanel's innerHTML re-renders
+    this.buildPanel.addPersistentChild(this.logisticsPanel.getContainer());
     this.overlays = new Overlays(this);
     this.marketPanel = new MarketPanel();
     this.techPanel = new TechPanel();
@@ -74,13 +93,22 @@ export class GameScene extends Phaser.Scene {
     for (const b of this.state.buildings) {
       this.spawnBuildingSprite(b);
     }
+    for (const s of this.state.splitters) {
+      this.spawnLogisticsSprite(s);
+    }
+    for (const m of this.state.mergers) {
+      this.spawnLogisticsSprite(m);
+    }
 
     // Camera setup
     const worldW = GRID_W * TILE_SIZE;
     const worldH = GRID_H * TILE_SIZE;
     this.cameras.main.setBounds(0, 0, worldW, worldH);
-    this.cameras.main.setZoom(1.5);
+    this.cameras.main.setZoom(0.25);
     this.cameras.main.centerOn(worldW / 2, worldH / 2);
+
+    // Minimap
+    this.minimap = new Minimap(this, this.gridRenderer.zones);
 
     // Input
     this.setupInput();
@@ -92,7 +120,13 @@ export class GameScene extends Phaser.Scene {
       this.hud.showAlert(`✅ Modèle ${modelId.toUpperCase()} vendu — ${price} 💎`);
     });
     EventBus.on(Events.BUILDING_PLACED, (b: unknown) => {
-      this.spawnBuildingSprite(b as Building);
+      const entity = b as Building | Splitter | Merger;
+      if ('type' in entity && typeof (entity as Building).type === 'string' &&
+          Object.values(BuildingType).includes((entity as Building).type as BuildingType)) {
+        this.spawnBuildingSprite(entity as Building);
+      } else if ('outputDirections' in entity || 'inputDirections' in entity) {
+        this.spawnLogisticsSprite(entity as Splitter | Merger);
+      }
     });
 
     startTickLoop(this.state);
@@ -102,23 +136,31 @@ export class GameScene extends Phaser.Scene {
     // Update all sprites
     for (const [, sprite] of this.buildingSprites) sprite.update();
     for (const [, anim] of this.conveyorAnims) anim.update();
+    for (const [, ls] of this.logisticsSprites) ls.update();
     this.hud.update(this.state);
     this.buildPanel.render(this.state);
+    this.logisticsPanel.update(this.state.credits);
     this.overlays.update(this.state);
-    this.overlays.drawHeatGrid(this.state);
+    this.overlays.drawHeatGrid(this.state, this.cameras.main);
     this.marketPanel.update(this.state);
     this.techPanel.update(this.state);
     this.infoPanel.update();
+    this.minimap.update(this.state, this.cameras.main);
     maybeAutosave(this.state);
   }
 
   private spawnBuildingSprite(b: Building): void {
     const sprite = new BuildingSprite(this, b);
     sprite.setInteractive((building) => {
-      if (this.placementMode.active || this.conveyorMode) return;
+      if (this.placementMode.active || this.conveyorMode || this.logisticsMode.active) return;
       this.infoPanel.show(building, this.state);
     });
     this.buildingSprites.set(b.id, sprite);
+  }
+
+  private spawnLogisticsSprite(entity: Splitter | Merger): void {
+    const sprite = new LogisticsSprite(this, entity);
+    this.logisticsSprites.set(entity.id, sprite);
   }
 
   private setupInput(): void {
@@ -139,8 +181,10 @@ export class GameScene extends Phaser.Scene {
         panning = true;
         panStart = { x: ptr.x, y: ptr.y, camX: cam.scrollX, camY: cam.scrollY };
         this.placementMode = { active: false };
+        this.logisticsMode = { active: false };
         this.conveyorMode = false;
         this.buildPanel.deselect();
+        this.logisticsPanel.deselect();
         this.infoPanel.hide();
       }
     });
@@ -167,8 +211,10 @@ export class GameScene extends Phaser.Scene {
 
     keys.on('keydown-ESC', () => {
       this.placementMode = { active: false };
+      this.logisticsMode = { active: false };
       this.conveyorMode = false;
       this.buildPanel.deselect();
+      this.logisticsPanel.deselect();
       this.infoPanel.hide();
       this.previewGraphics.clear();
     });
@@ -181,7 +227,9 @@ export class GameScene extends Phaser.Scene {
 
     keys.on('keydown-C', () => {
       this.placementMode = { active: false };
+      this.logisticsMode = { active: false };
       this.buildPanel.deselect();
+      this.logisticsPanel.deselect();
       this.conveyorMode = true;
     });
 
@@ -237,6 +285,30 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.logisticsMode.active) {
+      const { config } = this.logisticsMode;
+      if (config.type === 'Splitter') {
+        const splitter = placeSplitter(this.state, tileX, tileY, config.outputDirections);
+        if (!splitter) {
+          if (this.state.credits < 30) {
+            this.hud.showAlert('⚠️ Crédits insuffisants — besoin de 30 💎');
+          } else {
+            this.hud.showAlert('⚠️ Emplacement occupé');
+          }
+        }
+      } else {
+        const merger = placeMerger(this.state, tileX, tileY, config.inputDirections, config.outputDirection);
+        if (!merger) {
+          if (this.state.credits < 30) {
+            this.hud.showAlert('⚠️ Crédits insuffisants — besoin de 30 💎');
+          } else {
+            this.hud.showAlert('⚠️ Emplacement occupé');
+          }
+        }
+      }
+      return;
+    }
+
     if (this.placementMode.active) {
       const { buildingType, config } = this.placementMode;
 
@@ -280,7 +352,17 @@ export class GameScene extends Phaser.Scene {
       this.previewGraphics.fillRect(tileX * TILE_SIZE, tileY * TILE_SIZE, TILE_SIZE, TILE_SIZE);
       this.previewGraphics.lineStyle(1, 0x4488ff);
       this.previewGraphics.strokeRect(tileX * TILE_SIZE, tileY * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-      void arrow[arrowIdx]; // rendered by text elsewhere
+      void arrow[arrowIdx];
+      return;
+    }
+
+    if (this.logisticsMode.active) {
+      const valid = this.isCellFreeForLogistics(tileX, tileY);
+      const color = this.logisticsMode.config.type === 'Splitter' ? 0x00ccff : 0xaa44ff;
+      this.previewGraphics.fillStyle(valid ? color : 0xff4444, 0.4);
+      this.previewGraphics.fillRect(tileX * TILE_SIZE, tileY * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      this.previewGraphics.lineStyle(2, valid ? color : 0xff4444);
+      this.previewGraphics.strokeRect(tileX * TILE_SIZE, tileY * TILE_SIZE, TILE_SIZE, TILE_SIZE);
       return;
     }
 
@@ -297,6 +379,17 @@ export class GameScene extends Phaser.Scene {
     this.previewGraphics.strokeRect(tileX * TILE_SIZE, tileY * TILE_SIZE, pw, ph);
   }
 
+  private isCellFreeForLogistics(tx: number, ty: number): boolean {
+    if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return false;
+    for (const b of this.state.buildings) {
+      if (tx >= b.x && tx < b.x + b.width && ty >= b.y && ty < b.y + b.height) return false;
+    }
+    if (this.state.conveyors.find(c => c.x === tx && c.y === ty)) return false;
+    if (this.state.splitters.find(s => s.x === tx && s.y === ty)) return false;
+    if (this.state.mergers.find(m => m.x === tx && m.y === ty)) return false;
+    return true;
+  }
+
   private isValidPlacement(tx: number, ty: number, w: number, h: number, zone: string): boolean {
     if (tx < 0 || ty < 0 || tx + w > GRID_W || ty + h > GRID_H) return false;
 
@@ -308,7 +401,7 @@ export class GameScene extends Phaser.Scene {
       return this.gridRenderer.getZone(tx, ty) === ZoneType.SiliconVein;
     }
 
-    // Collision check
+    // Collision check with buildings
     for (const b of this.state.buildings) {
       if (tx < b.x + b.width && tx + w > b.x && ty < b.y + b.height && ty + h > b.y) {
         return false;
@@ -321,9 +414,11 @@ export class GameScene extends Phaser.Scene {
     stopTickLoop();
     this.hud.destroy();
     this.buildPanel.destroy();
+    this.logisticsPanel.destroy();
     this.overlays.destroy();
     this.marketPanel.destroy();
     this.techPanel.destroy();
     this.infoPanel.destroy();
+    this.minimap.destroy();
   }
 }

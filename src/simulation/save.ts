@@ -1,6 +1,7 @@
 import { GameState } from './GameState';
 import { Building, BuildingType, ResourceType, IPort } from '../entities/Building';
 import { Conveyor, ConveyorDirection } from '../entities/Conveyor';
+import { Splitter, Merger } from '../entities/Logistics';
 import { getBuildingConfig } from './techTree';
 
 interface SaveData {
@@ -24,6 +25,20 @@ interface SaveData {
     y: number;
     direction: string;
     mk: number;
+  }>;
+  splitters: Array<{
+    id: string;
+    x: number;
+    y: number;
+    outputDirections: string[];
+    currentOutputIndex: number;
+  }>;
+  mergers: Array<{
+    id: string;
+    x: number;
+    y: number;
+    inputDirections: [string, string];
+    outputDirection: string;
   }>;
 }
 
@@ -51,6 +66,20 @@ export function saveGame(state: GameState): void {
       y: c.y,
       direction: c.direction,
       mk: c.mk,
+    })),
+    splitters: state.splitters.map(s => ({
+      id: s.id,
+      x: s.x,
+      y: s.y,
+      outputDirections: s.outputDirections,
+      currentOutputIndex: s.currentOutputIndex,
+    })),
+    mergers: state.mergers.map(m => ({
+      id: m.id,
+      x: m.x,
+      y: m.y,
+      inputDirections: m.inputDirections,
+      outputDirection: m.outputDirection,
     })),
   };
   try {
@@ -115,6 +144,24 @@ export function applyLoad(state: GameState, data: SaveData): void {
   // Reconstruct proper Conveyor instances from saved data
   state.conveyors = data.conveyors.map(
     c => new Conveyor(c.x, c.y, c.direction as ConveyorDirection, c.mk as 1 | 2 | 3)
+  );
+
+  // Reconstruct Splitters and Mergers
+  state.splitters = (data.splitters ?? []).map(s =>
+    new Splitter(s.id, s.x, s.y, s.outputDirections as ConveyorDirection[])
+  );
+  for (let i = 0; i < state.splitters.length; i++) {
+    state.splitters[i].currentOutputIndex = (data.splitters ?? [])[i]?.currentOutputIndex ?? 0;
+  }
+
+  state.mergers = (data.mergers ?? []).map(m =>
+    new Merger(
+      m.id,
+      m.x,
+      m.y,
+      m.inputDirections as [ConveyorDirection, ConveyorDirection],
+      m.outputDirection as ConveyorDirection
+    )
   );
 }
 
