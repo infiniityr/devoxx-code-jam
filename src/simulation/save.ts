@@ -2,7 +2,8 @@ import { GameState } from './GameState';
 import { Building, BuildingType, ResourceType, IPort } from '../entities/Building';
 import { Conveyor, ConveyorDirection } from '../entities/Conveyor';
 import { Splitter, Merger } from '../entities/Logistics';
-import { getBuildingConfig } from './techTree';
+import { getBuildingConfig, recomputeTechModifiers } from './techTree';
+import demoSaveData from '../data/demoSave.json';
 
 interface SaveData {
   version: string;
@@ -108,6 +109,8 @@ export function applyLoad(state: GameState, data: SaveData): void {
   state.vramCapacity = data.vramCapacity;
   state.seed = data.seed;
 
+  recomputeTechModifiers(state);
+
   // Reconstruct proper Building instances from saved data + techTree config
   state.buildings = [];
   for (const saved of data.buildings) {
@@ -170,4 +173,9 @@ export function maybeAutosave(state: GameState): void {
   if (state.ticks % 3000 === 0 && state.ticks > 0) {
     saveGame(state);
   }
+}
+
+/** Return the bundled demo save (loaded when ?demo=true is in the URL) */
+export function loadDemoSave(): SaveData {
+  return demoSaveData as SaveData;
 }
