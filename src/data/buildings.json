@@ -107,7 +107,13 @@
     "buildCost": 800,
     "vramCost": 3,
     "heatPerTick": 5,
-    "inputs": [],
+    "inputs": [
+      { "resource": "Neuron", "rate": 1 },
+      { "resource": "Embedding", "rate": 1 },
+      { "resource": "Token", "rate": 1 },
+      { "resource": "AttentionWeight", "rate": 1 },
+      { "resource": "GradientPacket", "rate": 1 }
+    ],
     "outputs": [],
     "placementZone": "Open",
     "color": 16776960,

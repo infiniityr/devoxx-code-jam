@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { GameState, createInitialState } from '../simulation/GameState';
 import { startTickLoop, stopTickLoop } from '../simulation/tick';
 import { placeBuilding, placeConveyor, placeSplitter, placeMerger } from '../simulation/world';
-import { saveGame, loadGame, applyLoad, maybeAutosave } from '../simulation/save';
+import { saveGame, loadGame, loadDemoSave, applyLoad, maybeAutosave } from '../simulation/save';
 import { syncNextId } from '../simulation/world';
 import { EventBus, Events } from '../EventBus';
 import { Building, BuildingType } from '../entities/Building';
@@ -51,7 +51,8 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#0a0a14');
 
     // State
-    const saved = loadGame();
+    const isDemo = new URLSearchParams(window.location.search).has('demo');
+    const saved = isDemo ? loadDemoSave() : loadGame();
     this.state = createInitialState(42);
     if (saved) {
       applyLoad(this.state, saved);

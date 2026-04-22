@@ -1,0 +1,41 @@
+{
+  "version": "0.1",
+  "seed": 42,
+  "ticks": 0,
+  "credits": 5000,
+  "researchPoints": 50,
+  "unlockedTech": [
+    "tokenizer_mk2",
+    "conveyor_speed_1",
+    "buffer_capacity_1",
+    "power_efficiency_1",
+    "cooling_tower",
+    "backprop_unit",
+    "vram_expansion_1",
+    "lite_model_blueprint",
+    "memory_bus_1",
+    "parallel_processing"
+  ],
+  "unlockedRecipes": ["mlp", "cnn", "transformer", "lite"],
+  "vramCapacity": 20,
+  "buildings": [
+    { "id": "PowerGenerator_1", "type": "PowerGenerator", "x": 120, "y": 124 },
+    { "id": "SiliconMine_2",    "type": "SiliconMine",    "x": 120, "y": 127 },
+    { "id": "DataExtractor_3",  "type": "DataExtractor",  "x": 120, "y": 131 },
+    { "id": "NeuronFab_4",      "type": "NeuronFab",      "x": 122, "y": 127 },
+    { "id": "Tokenizer_5",      "type": "Tokenizer",      "x": 122, "y": 130 },
+    { "id": "EmbeddingEncoder_6","type": "EmbeddingEncoder","x": 125, "y": 128 },
+    { "id": "ModelIntegrator_7","type": "ModelIntegrator","x": 128, "y": 127, "recipeId": "mlp" }
+  ],
+  "conveyors": [
+    { "x": 121, "y": 127, "direction": "right", "mk": 1 },
+    { "x": 121, "y": 131, "direction": "right", "mk": 1 },
+    { "x": 123, "y": 130, "direction": "up",    "mk": 1 },
+    { "x": 124, "y": 128, "direction": "right", "mk": 1 },
+    { "x": 124, "y": 129, "direction": "right", "mk": 1 },
+    { "x": 127, "y": 128, "direction": "right", "mk": 1 },
+    { "x": 127, "y": 129, "direction": "right", "mk": 1 }
+  ],
+  "splitters": [],
+  "mergers": []
+}
