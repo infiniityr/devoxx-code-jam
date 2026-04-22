@@ -1,0 +1,16 @@
+{
+  "tier1": [
+    { "id": "tokenizer_mk2", "label": "Tokenizer Mk2", "cost": 5, "tier": 1, "requires": [], "effect": "tokenizerSpeed", "value": 1.5 },
+    { "id": "conveyor_speed_1", "label": "Conveyor Speed I", "cost": 5, "tier": 1, "requires": [], "effect": "conveyorSpeed", "value": 1.3 },
+    { "id": "buffer_capacity_1", "label": "Buffer Capacity I", "cost": 5, "tier": 1, "requires": [], "effect": "bufferCapacity", "value": 2 },
+    { "id": "power_efficiency_1", "label": "Power Efficiency I", "cost": 10, "tier": 1, "requires": [], "effect": "powerEfficiency", "value": 0.9 }
+  ],
+  "tier2": [
+    { "id": "cooling_tower", "label": "Cooling Tower", "cost": 15, "tier": 2, "requires": ["tier1_5"], "effect": "unlockBuilding", "value": "CoolingTower" },
+    { "id": "backprop_unit", "label": "Backprop Unit", "cost": 15, "tier": 2, "requires": ["tier1_5"], "effect": "unlockBuilding", "value": "BackpropUnit" },
+    { "id": "vram_expansion_1", "label": "VRAM Expansion I", "cost": 20, "tier": 2, "requires": ["tier1_5"], "effect": "vramBonus", "value": 4 },
+    { "id": "lite_model_blueprint", "label": "Lite Model Blueprint", "cost": 10, "tier": 2, "requires": ["tier1_5"], "effect": "unlockRecipe", "value": "lite" },
+    { "id": "memory_bus_1", "label": "Memory Bus I", "cost": 20, "tier": 2, "requires": ["tier1_5"], "effect": "memoryBandwidth", "value": 1.25 },
+    { "id": "parallel_processing", "label": "Parallel Processing", "cost": 25, "tier": 2, "requires": ["tier1_5"], "effect": "maxIntegrators", "value": 2 }
+  ]
+}

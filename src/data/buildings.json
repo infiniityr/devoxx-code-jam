@@ -1,0 +1,132 @@
+[
+  {
+    "type": "DataExtractor",
+    "label": "Data Extractor",
+    "width": 2,
+    "height": 2,
+    "energyCost": 5,
+    "buildCost": 50,
+    "vramCost": 0,
+    "heatPerTick": 0,
+    "inputs": [],
+    "outputs": [{ "resource": "DataShard", "rate": 2 }],
+    "placementZone": "DataNode",
+    "color": 52479,
+    "category": "Production"
+  },
+  {
+    "type": "SiliconMine",
+    "label": "Silicon Mine",
+    "width": 2,
+    "height": 2,
+    "energyCost": 8,
+    "buildCost": 60,
+    "vramCost": 0,
+    "heatPerTick": 0,
+    "inputs": [],
+    "outputs": [{ "resource": "Silicon", "rate": 1 }],
+    "placementZone": "SiliconVein",
+    "color": 9136404,
+    "category": "Production"
+  },
+  {
+    "type": "Tokenizer",
+    "label": "Tokenizer",
+    "width": 2,
+    "height": 3,
+    "energyCost": 12,
+    "buildCost": 120,
+    "vramCost": 0.5,
+    "heatPerTick": 0,
+    "inputs": [{ "resource": "DataShard", "rate": 3 }],
+    "outputs": [{ "resource": "Token", "rate": 5 }],
+    "placementZone": "Open",
+    "color": 4521864,
+    "category": "Production"
+  },
+  {
+    "type": "NeuronFab",
+    "label": "Neuron Fab",
+    "width": 3,
+    "height": 3,
+    "energyCost": 20,
+    "buildCost": 200,
+    "vramCost": 1,
+    "heatPerTick": 10,
+    "inputs": [
+      { "resource": "Token", "rate": 2 },
+      { "resource": "Silicon", "rate": 1 }
+    ],
+    "outputs": [{ "resource": "Neuron", "rate": 1 }],
+    "placementZone": "Open",
+    "color": 16746496,
+    "category": "Production"
+  },
+  {
+    "type": "EmbeddingEncoder",
+    "label": "Embedding Encoder",
+    "width": 3,
+    "height": 2,
+    "energyCost": 25,
+    "buildCost": 300,
+    "vramCost": 2,
+    "heatPerTick": 0,
+    "inputs": [
+      { "resource": "Token", "rate": 4 },
+      { "resource": "Neuron", "rate": 2 }
+    ],
+    "outputs": [{ "resource": "Embedding", "rate": 1 }],
+    "placementZone": "Open",
+    "color": 11158783,
+    "category": "Production"
+  },
+  {
+    "type": "AttentionForge",
+    "label": "Attention Forge",
+    "width": 4,
+    "height": 3,
+    "energyCost": 40,
+    "buildCost": 500,
+    "vramCost": 4,
+    "heatPerTick": 20,
+    "inputs": [
+      { "resource": "Embedding", "rate": 3 },
+      { "resource": "Neuron", "rate": 2 }
+    ],
+    "outputs": [{ "resource": "AttentionWeight", "rate": 1 }],
+    "placementZone": "Open",
+    "color": 16720486,
+    "category": "Production"
+  },
+  {
+    "type": "ModelIntegrator",
+    "label": "Model Integrator",
+    "width": 4,
+    "height": 4,
+    "energyCost": 30,
+    "buildCost": 800,
+    "vramCost": 3,
+    "heatPerTick": 5,
+    "inputs": [],
+    "outputs": [],
+    "placementZone": "Open",
+    "color": 16776960,
+    "category": "Production"
+  },
+  {
+    "type": "PowerGenerator",
+    "label": "Power Generator",
+    "width": 3,
+    "height": 3,
+    "energyCost": 0,
+    "buildCost": 400,
+    "vramCost": 0,
+    "heatPerTick": 0,
+    "inputs": [],
+    "outputs": [],
+    "placementZone": "Open",
+    "energyOutput": 100,
+    "color": 16763904,
+    "category": "Energy"
+  }
+]

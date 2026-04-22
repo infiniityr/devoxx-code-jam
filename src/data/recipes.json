@@ -1,0 +1,68 @@
+[
+  {
+    "id": "mlp",
+    "label": "MLP",
+    "inputs": [
+      { "resource": "Neuron", "amount": 10 },
+      { "resource": "Embedding", "amount": 5 }
+    ],
+    "cycleTicks": 20,
+    "qualityMin": 30,
+    "qualityMax": 45,
+    "latencyMs": 10,
+    "vramRequired": 4,
+    "basePriceMin": 200,
+    "basePriceMax": 400,
+    "tier": 1
+  },
+  {
+    "id": "cnn",
+    "label": "CNN",
+    "inputs": [
+      { "resource": "Neuron", "amount": 8 },
+      { "resource": "Embedding", "amount": 4 },
+      { "resource": "Token", "amount": 3 }
+    ],
+    "cycleTicks": 25,
+    "qualityMin": 50,
+    "qualityMax": 65,
+    "latencyMs": 25,
+    "vramRequired": 6,
+    "basePriceMin": 500,
+    "basePriceMax": 900,
+    "tier": 1
+  },
+  {
+    "id": "transformer",
+    "label": "Transformer",
+    "inputs": [
+      { "resource": "AttentionWeight", "amount": 6 },
+      { "resource": "Embedding", "amount": 8 },
+      { "resource": "GradientPacket", "amount": 4 }
+    ],
+    "cycleTicks": 40,
+    "qualityMin": 75,
+    "qualityMax": 95,
+    "latencyMs": 80,
+    "vramRequired": 12,
+    "basePriceMin": 2000,
+    "basePriceMax": 5000,
+    "tier": 1
+  },
+  {
+    "id": "lite",
+    "label": "Lite Model",
+    "inputs": [
+      { "resource": "Neuron", "amount": 5 },
+      { "resource": "Embedding", "amount": 2 }
+    ],
+    "cycleTicks": 15,
+    "qualityMin": 20,
+    "qualityMax": 35,
+    "latencyMs": 5,
+    "vramRequired": 2,
+    "basePriceMin": 150,
+    "basePriceMax": 300,
+    "tier": 2
+  }
+]
