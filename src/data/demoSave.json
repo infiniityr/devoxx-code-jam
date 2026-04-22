@@ -28,13 +28,13 @@
     { "id": "ModelIntegrator_7","type": "ModelIntegrator","x": 128, "y": 127, "recipeId": "mlp" }
   ],
   "conveyors": [
-    { "x": 121, "y": 127, "direction": "right", "mk": 1 },
-    { "x": 121, "y": 131, "direction": "right", "mk": 1 },
-    { "x": 123, "y": 130, "direction": "up",    "mk": 1 },
-    { "x": 124, "y": 128, "direction": "right", "mk": 1 },
-    { "x": 124, "y": 129, "direction": "right", "mk": 1 },
-    { "x": 127, "y": 128, "direction": "right", "mk": 1 },
-    { "x": 127, "y": 129, "direction": "right", "mk": 1 }
+    { "x": 121, "y": 127, "direction": "Right", "mk": 1 },
+    { "x": 121, "y": 131, "direction": "Right", "mk": 1 },
+    { "x": 123, "y": 130, "direction": "Up",    "mk": 1 },
+    { "x": 124, "y": 128, "direction": "Right", "mk": 1 },
+    { "x": 124, "y": 129, "direction": "Right", "mk": 1 },
+    { "x": 127, "y": 128, "direction": "Right", "mk": 1 },
+    { "x": 127, "y": 129, "direction": "Right", "mk": 1 }
   ],
   "splitters": [],
   "mergers": []
