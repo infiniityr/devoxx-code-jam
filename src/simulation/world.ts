@@ -9,6 +9,14 @@ function nextId(prefix: string): string {
   return `${prefix}_${_nextId++}`;
 }
 
+/** After loading a save, sync _nextId so new buildings don't collide with loaded IDs */
+export function syncNextId(buildings: Building[]): void {
+  for (const b of buildings) {
+    const num = parseInt(b.id.split('_').pop() ?? '0', 10);
+    if (num >= _nextId) _nextId = num + 1;
+  }
+}
+
 export function placeBuilding(
   state: GameState,
   type: BuildingType,

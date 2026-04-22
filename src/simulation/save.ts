@@ -1,6 +1,7 @@
 import { GameState } from './GameState';
-import { Building } from '../entities/Building';
-import { Conveyor } from '../entities/Conveyor';
+import { Building, BuildingType, ResourceType, IPort } from '../entities/Building';
+import { Conveyor, ConveyorDirection } from '../entities/Conveyor';
+import { getBuildingConfig } from './techTree';
 
 interface SaveData {
   version: string;
@@ -78,10 +79,43 @@ export function applyLoad(state: GameState, data: SaveData): void {
   state.vramCapacity = data.vramCapacity;
   state.seed = data.seed;
 
-  // Buildings and conveyors are re-created by the world module on load
-  // (handled in GameScene)
-  state.buildings = data.buildings as unknown as Building[];
-  state.conveyors = data.conveyors as unknown as Conveyor[];
+  // Reconstruct proper Building instances from saved data + techTree config
+  state.buildings = [];
+  for (const saved of data.buildings) {
+    const cfg = getBuildingConfig(saved.type as BuildingType);
+    if (!cfg) continue;
+
+    const inputPorts: IPort[] = cfg.inputs.map(i => ({
+      resource: i.resource as ResourceType,
+      ratePerTick: i.rate,
+      actualRate: 0,
+    }));
+    const outputPorts: IPort[] = cfg.outputs.map(o => ({
+      resource: o.resource as ResourceType,
+      ratePerTick: o.rate,
+      actualRate: 0,
+    }));
+
+    state.buildings.push(new Building({
+      id: saved.id,
+      type: saved.type as BuildingType,
+      x: saved.x,
+      y: saved.y,
+      width: cfg.width,
+      height: cfg.height,
+      energyCost: cfg.energyCost,
+      vramCost: cfg.vramCost,
+      heatPerTick: cfg.heatPerTick,
+      inputPorts,
+      outputPorts,
+      recipeId: saved.recipeId,
+    }));
+  }
+
+  // Reconstruct proper Conveyor instances from saved data
+  state.conveyors = data.conveyors.map(
+    c => new Conveyor(c.x, c.y, c.direction as ConveyorDirection, c.mk as 1 | 2 | 3)
+  );
 }
 
 /** Autosave every 5 minutes (3000 ticks at 10 TPS) */

@@ -3,6 +3,7 @@ import { GameState, createInitialState } from '../simulation/GameState';
 import { startTickLoop, stopTickLoop } from '../simulation/tick';
 import { placeBuilding, placeConveyor } from '../simulation/world';
 import { saveGame, loadGame, applyLoad, maybeAutosave } from '../simulation/save';
+import { syncNextId } from '../simulation/world';
 import { EventBus, Events } from '../EventBus';
 import { Building, BuildingType } from '../entities/Building';
 import { ConveyorDirection } from '../entities/Conveyor';
@@ -44,7 +45,10 @@ export class GameScene extends Phaser.Scene {
     // State
     const saved = loadGame();
     this.state = createInitialState(42);
-    if (saved) applyLoad(this.state, saved);
+    if (saved) {
+      applyLoad(this.state, saved);
+      syncNextId(this.state.buildings);
+    }
 
     // Grid
     this.gridRenderer = new GridRenderer(this, this.state.seed);
@@ -201,8 +205,8 @@ export class GameScene extends Phaser.Scene {
     keys.on('keydown-THREE', () => this.overlays.setMode('vram'));
     keys.on('keydown-FOUR', () => this.overlays.setMode('energy'));
 
-    // WASD pan
-    this.input.keyboard!.addKeys('W,A,S,D');
+    // ZQSD pan
+    this.input.keyboard!.addKeys('Z,Q,S,D');
   }
 
   update(): void {
@@ -210,9 +214,9 @@ export class GameScene extends Phaser.Scene {
     const speed = 4 / cam.zoom;
     const keys = this.input.keyboard!;
 
-    if (keys.addKey('W').isDown) cam.scrollY -= speed;
+    if (keys.addKey('Z').isDown) cam.scrollY -= speed;
     if (keys.addKey('S').isDown) cam.scrollY += speed;
-    if (keys.addKey('A').isDown) cam.scrollX -= speed;
+    if (keys.addKey('Q').isDown) cam.scrollX -= speed;
     if (keys.addKey('D').isDown) cam.scrollX += speed;
   }
 
